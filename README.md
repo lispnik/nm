@@ -121,8 +121,15 @@ Without building an executable you can also run it via
   `request-scan`, `ap-ssid`, `ap-bssid`, `ap-strength`, `ap-frequency`,
   `ap-max-bitrate`, `ap-mode`; security via `ap-security` (a summary list
   like `(:wpa2)`) plus the raw `ap-flags`, `ap-wpa-flags`, `ap-rsn-flags`
+- **Client status:** `nm-running-p`, `state`, `metered`, `permission`
+- **Routes/domains/caps:** `device-ip4-routes` / `device-ip6-routes` (plists),
+  `device-ip4-domains` / `device-ip6-domains`, `device-speed` (Ethernet),
+  `device-capabilities`, `device-ports`, `device-vlan-id` / `device-vlan-parent`
+- **DHCP:** `device-dhcp4-options` / `device-dhcp6-options` (string alists),
+  `device-dhcp4-config` / `device-dhcp6-config`, `dhcp-options`
 - **Active connections:** `ac-id`, `ac-uuid`, `ac-type`, `ac-state`,
-  `ac-default-p`
+  `ac-default-p`, `ac-devices`, `ac-connection`, `ac-vpn-p`, `ac-vpn-state`,
+  `ac-vpn-banner`
 - **Saved profiles:** `connections`, `find-connection`, `connection-id`,
   `connection-uuid`, `connection-type`, `connection-interface`,
   `connection-path`, `connection-autoconnect-p`
@@ -136,10 +143,17 @@ Without building an executable you can also run it via
   `:activating`); waiting for `:activated` needs event monitoring (a later
   phase).
 - **Profiles (v2):** build with `make-connection` + `make-setting` /
-  `add-setting` / `add-ip4-setting` / `add-ip6-setting` (scalar properties via
-  `setting-property`), then `add-connection`; edit a saved profile's settings
-  and `update-connection` to commit; `delete-connection` to remove. `generate-uuid`
-  mints a UUID.
+  `add-setting` / `add-ip4-setting` / `add-ip6-setting`, then `add-connection`;
+  edit a saved profile's settings and `update-connection` to commit;
+  `delete-connection` to remove. `generate-uuid` mints a UUID.
+  - IP config takes `:addresses`/`:gateway` (static), `:routes` (plists, via
+    `add-ip-route`), `:dns`, `:dns-search`.
+  - Connection types: `make-wifi-connection` (PSK/SAE or enterprise 802.1x via
+    `:eap`/`:identity`/`:eap-password`), `make-vlan-connection`,
+    `make-bridge-connection`, `make-bond-connection`, `make-vpn-connection`;
+    build ports with `make-connection :master ... :slave-type ...`.
+- **Devices (v2):** `disconnect-device` deactivates a device and blocks
+  auto-activation.
 - **Wi-Fi connect (v2):** `connect-wifi` (`ssid` + optional `psk`, builds and
   activates a WPA-PSK profile); the generic `add-and-activate`; and the
   building blocks `make-wifi-connection`, `setting-set-ssid`, and
@@ -159,11 +173,17 @@ Without building an executable you can also run it via
 
 ## Tests
 
-`nm/test` is a smoke test that asserts shape/type invariants against a live
-NetworkManager (Linux only):
+- **`nm/test/unit`** — pure decoding/unpacking tests; no NetworkManager
+  needed, so they run on any platform (good for CI):
+  `(asdf:load-system :nm/test/unit)` then `(nm.test.unit:run)`.
+- **`nm/test`** — smoke test asserting shape/type invariants against a live
+  NetworkManager (Linux): `(nm.test:run)`.
+- **`nm/test/mutation`** — exercises the full add → activate → update →
+  deactivate → delete lifecycle on a throwaway `dummy` device. Gated behind
+  `NM_TEST_MUTATE=1` and requires root: `(nm.test.mutation:run)`.
 
 ```sh
-sbcl --eval "(asdf:load-system :nm/test)" --eval "(nm.test:run)" --quit
+sbcl --eval "(asdf:load-system :nm/test/unit)" --eval "(nm.test.unit:run)" --quit
 ```
 
 ## License

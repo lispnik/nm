@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; The shared event loop and async marshaling core (v2 improvement #4).
 ;;;
@@ -73,7 +73,7 @@ signalling NM-ERROR.  NIL waits indefinitely.")
 
 (defvar *event-loop* nil)
 (defvar *event-loop-thread* nil)
-(defvar *event-loop-lock* (sb-thread:make-mutex :name "nm-event-loop"))
+(defvar *event-loop-lock* (bt:make-lock "nm-event-loop"))
 
 (defun event-loop-running-p ()
   "True when the shared event loop thread is running."
@@ -82,17 +82,17 @@ signalling NM-ERROR.  NIL waits indefinitely.")
 (defun loop-thread-p ()
   "True when called on the event-loop thread."
   (and *event-loop-thread*
-       (eq sb-thread:*current-thread* *event-loop-thread*)))
+       (eq (bt:current-thread) *event-loop-thread*)))
 
 (defun ensure-event-loop ()
   "Start the shared event-loop thread if it is not already running.  Idempotent."
   (ensure-libnm)
-  (sb-thread:with-mutex (*event-loop-lock*)
+  (bt:with-lock-held (*event-loop-lock*)
     (unless *event-loop-thread*
       (let ((mloop (gir:invoke ((glib-namespace) "MainLoop" 'new) nil nil)))
         (setf *event-loop* mloop
               *event-loop-thread*
-              (sb-thread:make-thread (lambda () (gir:invoke (mloop 'run)))
+              (bt:make-thread (lambda () (gir:invoke (mloop 'run)))
                                      :name "nm-event-loop")))))
   t)
 
@@ -103,13 +103,13 @@ Idempotent; returns T."
 
 (defun stop-event-loop ()
   "Stop the shared event loop and join its thread.  Returns T."
-  (sb-thread:with-mutex (*event-loop-lock*)
+  (bt:with-lock-held (*event-loop-lock*)
     (let ((mloop *event-loop*)
           (thread *event-loop-thread*))
       (setf *event-loop* nil *event-loop-thread* nil)
       (when mloop (gir:invoke (mloop 'quit)))
-      (when (and thread (not (eq thread sb-thread:*current-thread*)))
-        (ignore-errors (sb-thread:join-thread thread)))))
+      (when (and thread (not (eq thread (bt:current-thread))))
+        (ignore-errors (bt:join-thread thread)))))
   t)
 
 ;;; ---------------------------------------------------------------------------
@@ -132,19 +132,19 @@ if already on the loop thread."
   (ensure-event-loop)
   (if (loop-thread-p)
       (funcall thunk)
-      (let ((lock (sb-thread:make-mutex :name "nm-call-on-loop"))
-            (cv (sb-thread:make-waitqueue))
+      (let ((lock (bt:make-lock "nm-call-on-loop"))
+            (cv (bt:make-condition-variable))
             (result nil) (problem nil) (done nil))
         (run-on-loop
          (lambda ()
            (handler-case (setf result (funcall thunk))
              (error (e) (setf problem e)))
-           (sb-thread:with-mutex (lock)
+           (bt:with-lock-held (lock)
              (setf done t)
-             (sb-thread:condition-notify cv))))
-        (sb-thread:with-mutex (lock)
+             (bt:condition-notify cv))))
+        (bt:with-lock-held (lock)
           (loop until done do
-            (unless (sb-thread:condition-wait cv lock :timeout timeout)
+            (unless (bt:condition-wait cv lock :timeout timeout)
               (unless done
                 (setf problem (make-condition 'nm-error :message "loop call timed out")
                       done t)))))
@@ -166,8 +166,8 @@ re-raised here."
     (error 'nm-error :message
            "cannot call a synchronous NM operation from within an event handler"))
   (let ((cancellable (%g-cancellable-new))
-        (lock (sb-thread:make-mutex :name "nm-async"))
-        (cv (sb-thread:make-waitqueue))
+        (lock (bt:make-lock "nm-async"))
+        (cv (bt:make-condition-variable))
         (result nil) (problem nil) (done nil) (timed-out nil))
     (run-on-loop
      (lambda ()
@@ -176,13 +176,13 @@ re-raised here."
                        (unless timed-out
                          (handler-case (setf result (funcall finish source res))
                            (error (e) (setf problem e)))
-                         (sb-thread:with-mutex (lock)
+                         (bt:with-lock-held (lock)
                            (setf done t)
-                           (sb-thread:condition-notify cv)))))))
+                           (bt:condition-notify cv)))))))
          (funcall start (cffi:callback %async-ready) token cancellable))))
-    (sb-thread:with-mutex (lock)
+    (bt:with-lock-held (lock)
       (loop until done do
-        (unless (sb-thread:condition-wait cv lock :timeout timeout)
+        (unless (bt:condition-wait cv lock :timeout timeout)
           (unless done
             (setf timed-out t done t
                   problem (make-condition 'nm-error :message "operation timed out"))

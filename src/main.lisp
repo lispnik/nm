@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; A small demonstration driver that prints a human-readable snapshot of
 ;;; the system's NetworkManager state using the read-only binding.

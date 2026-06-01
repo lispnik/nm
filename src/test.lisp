@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; A lightweight smoke test that exercises the read-only binding against a
 ;;; live NetworkManager.  It asserts shape/type invariants rather than exact

@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; v2 Phase 0: the asynchronous core.
 ;;;
@@ -181,6 +181,37 @@ responds.  Returns T on success; signals NM-ERROR on failure."
            (maybe-signal-gerror err "deactivation failed")
            ok))))))
 
+;;; Device disconnect
+
+(cffi:defcfun ("nm_device_disconnect_async" %nm-device-disconnect-async) :void
+  (device :pointer)
+  (cancellable :pointer)
+  (callback :pointer)
+  (user-data :pointer))
+
+(cffi:defcfun ("nm_device_disconnect_finish" %nm-device-disconnect-finish) :boolean
+  (device :pointer)
+  (result :pointer)
+  (error :pointer))
+
+(defun disconnect-device (device &optional (client *client*))
+  "Disconnect DEVICE (a device object or interface-name string), deactivating
+its connection and blocking auto-activation until the next manual activation.
+Returns T; signals NM-ERROR on failure."
+  (ensure-libnm)
+  (let* ((dev (if (stringp device) (find-device device client) device))
+         (dev-ptr (gir::this-of dev)))
+    (call-async-sync
+     (lambda (callback token cancellable)
+       (%nm-device-disconnect-async dev-ptr cancellable callback token))
+     (lambda (source result)
+       (declare (ignore source))
+       (cffi:with-foreign-object (err :pointer)
+         (setf (cffi:mem-ref err :pointer) (cffi:null-pointer))
+         (let ((ok (%nm-device-disconnect-finish dev-ptr result err)))
+           (maybe-signal-gerror err "device disconnect failed")
+           ok))))))
+
 ;;; add/update/delete saved profiles
 
 (cffi:defcfun ("nm_client_add_connection_async"
@@ -336,13 +367,15 @@ failure."
            (unless (cffi:null-pointer-p ac)
              (adopt-ref (gir::gobject (gir::gtype ac) ac)))))))))
 
-(defun connect-wifi (ssid &key psk device hidden (client *client*))
+(defun connect-wifi (ssid &key psk device hidden (key-mgmt "wpa-psk")
+                               (client *client*))
   "Connect to the Wi-Fi network SSID (a string), optionally authenticating
-with WPA-PSK passphrase PSK.
+with passphrase PSK (KEY-MGMT \"wpa-psk\" for WPA/WPA2, \"sae\" for WPA3).
 
 Builds a new Wi-Fi profile (see MAKE-WIFI-CONNECTION) and add-and-activates it
 on DEVICE (a Wi-Fi device object or interface-name string; NIL lets NM choose
 a Wi-Fi device).  HIDDEN marks the SSID as non-broadcast.  Returns the
 resulting NMActiveConnection; activation may still be in progress on return."
-  (add-and-activate (make-wifi-connection ssid :psk psk :hidden hidden)
+  (add-and-activate (make-wifi-connection ssid :psk psk :hidden hidden
+                                               :key-mgmt key-mgmt)
                     :device device :client client))

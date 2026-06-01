@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; A small nmcli-like command-line front end that exercises the nm
 ;;; binding, built with clingon.
@@ -94,14 +94,19 @@ non-zero.  Used to wrap mutating operations."
   (let ((ac (nm:device-active-connection device)))
     (if ac (nm:ac-id ac) "--")))
 
-(defun list-devices (client)
-  (format t "~16A ~10A ~14A ~A~%" "DEVICE" "TYPE" "STATE" "CONNECTION")
+(defun list-devices (client &optional terse)
+  (unless terse
+    (format t "~16A ~10A ~14A ~A~%" "DEVICE" "TYPE" "STATE" "CONNECTION"))
   (dolist (d (nm:devices client))
-    (format t "~16A ~10A ~14A ~A~%"
-            (nm:device-interface d)
-            (kw (nm:device-type d))
-            (kw (nm:device-state d))
-            (device-connection-name d))))
+    (if terse
+        (format t "~A:~(~A~):~(~A~):~A~%"
+                (nm:device-interface d) (nm:device-type d)
+                (nm:device-state d) (device-connection-name d))
+        (format t "~16A ~10A ~14A ~A~%"
+                (nm:device-interface d)
+                (kw (nm:device-type d))
+                (kw (nm:device-state d))
+                (device-connection-name d)))))
 
 (defun show-device (client iface)
   (let ((d (nm:find-device iface client)))
@@ -142,14 +147,44 @@ non-zero.  Used to wrap mutating operations."
         (args (clingon:command-arguments cmd)))
     (if args
         (dolist (iface args) (show-device client iface))
-        (list-devices client))))
+        (list-devices client (clingon:getopt cmd :terse)))))
+
+(defun device-connect/handler (cmd)
+  (let ((client (ensure-client))
+        (iface (require-arg cmd "nm device connect <iface>")))
+    (with-cli-errors
+      (let ((ac (nm:activate-and-wait nil :device iface :client client :timeout 30)))
+        (format t "connected ~A (~(~A~))~%" iface (nm:ac-state ac))))))
+
+(defcmd device-connect
+  :name "connect"
+  :description "activate the best available connection on a device"
+  :usage "<iface>"
+  :handler #'device-connect/handler)
+
+(defun device-disconnect/handler (cmd)
+  (let ((client (ensure-client))
+        (iface (require-arg cmd "nm device disconnect <iface>")))
+    (with-cli-errors
+      (nm:disconnect-device iface client)
+      (format t "disconnected ~A~%" iface))))
+
+(defcmd device-disconnect
+  :name "disconnect"
+  :description "disconnect a device"
+  :usage "<iface>"
+  :handler #'device-disconnect/handler)
 
 (defcmd device
   :name "device"
-  :description "list network devices, or show one by interface name"
+  :description "list devices / show one (subcommands: connect, disconnect)"
   :aliases '("dev" "d")
   :usage "[IFACE ...]"
-  :handler #'device/handler)
+  :options (list (clingon:make-option
+                  :flag :description "terse, colon-separated output"
+                  :short-name #\t :long-name "terse" :key :terse))
+  :handler #'device/handler
+  :sub-commands (list (device-connect/command) (device-disconnect/command)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; wifi
@@ -231,15 +266,19 @@ first Wi-Fi device found."
 ;;; connection
 
 (defun connection/handler (cmd)
-  (declare (ignore cmd))
-  (let ((client (ensure-client)))
-    (format t "~34A ~16A ~10A ~A~%" "NAME" "TYPE" "STATE" "DEFAULT")
+  (let ((client (ensure-client))
+        (terse (clingon:getopt cmd :terse)))
+    (unless terse
+      (format t "~34A ~16A ~10A ~A~%" "NAME" "TYPE" "STATE" "DEFAULT"))
     (dolist (ac (nm:active-connections client))
-      (format t "~34A ~16A ~10A ~:[no~;yes~]~%"
-              (nm:ac-id ac)
-              (nm:ac-type ac)
-              (kw (nm:ac-state ac))
-              (nm:ac-default-p ac)))))
+      (if terse
+          (format t "~A:~A:~(~A~):~:[no~;yes~]~%"
+                  (nm:ac-id ac) (nm:ac-type ac) (nm:ac-state ac) (nm:ac-default-p ac))
+          (format t "~34A ~16A ~10A ~:[no~;yes~]~%"
+                  (nm:ac-id ac)
+                  (nm:ac-type ac)
+                  (kw (nm:ac-state ac))
+                  (nm:ac-default-p ac))))))
 
 (defun con-up/handler (cmd)
   (let* ((client (ensure-client))
@@ -296,6 +335,9 @@ first Wi-Fi device found."
   :name "connection"
   :description "list active connections (subcommands: up, down, delete)"
   :aliases '("con" "c")
+  :options (list (clingon:make-option
+                  :flag :description "terse, colon-separated output"
+                  :short-name #\t :long-name "terse" :key :terse))
   :handler #'connection/handler
   :sub-commands (list (con-up/command) (con-down/command) (con-delete/command)))
 

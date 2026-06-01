@@ -1,3 +1,7 @@
+babel, ghcr.io/ocicl/babel@sha256:9d9fcde71acc2b5c39572de4f11756a08c1d8801caa86c581b85dabaa35928b3, babel-20250905-4eaf3f2/babel.asd
+babel-streams, ghcr.io/ocicl/babel@sha256:9d9fcde71acc2b5c39572de4f11756a08c1d8801caa86c581b85dabaa35928b3, babel-20250905-4eaf3f2/babel-streams.asd
+babel-tests, ghcr.io/ocicl/babel@sha256:9d9fcde71acc2b5c39572de4f11756a08c1d8801caa86c581b85dabaa35928b3, babel-20250905-4eaf3f2/babel-tests.asd
+bordeaux-threads, ghcr.io/ocicl/bordeaux-threads@sha256:bbb32afe3987e102149cc019f4f7366a05f7a37d1503f5f86a27745e671c320a, bordeaux-threads-0.9.4/bordeaux-threads.asd
 cl-gobject-introspection, ghcr.io/ocicl/cl-gobject-introspection@sha256:474716bd26786812a5f09fbe432f456fdc1151c7763f308bce41813ab0839a72, cl-gobject-introspection-20240519-4908a84/cl-gobject-introspection.asd
 cl-gobject-introspection-test, ghcr.io/ocicl/cl-gobject-introspection@sha256:474716bd26786812a5f09fbe432f456fdc1151c7763f308bce41813ab0839a72, cl-gobject-introspection-20240519-4908a84/cl-gobject-introspection-test.asd
 clingon, ghcr.io/ocicl/clingon@sha256:519c73567f308b0eac75a4a4ba468a8b433184aa344eac2b79b8ab9f44b9db3c, clingon-20260429-94d4e2f/clingon.asd

@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; Accessors for NMDevice (and the NMDeviceWifi subclass), NMIPConfig,
 ;;; NMAccessPoint and NMActiveConnection.  All read-only.
@@ -115,6 +115,88 @@ e.g. ((\"192.168.1.42\" . 24)).  Empty when the device has no IPv4 config."
   "List of IPv6 nameserver address strings for DEVICE."
   (ip-config-nameservers (device-ip6-config device)))
 
+(defun ip-config-routes (cfg)
+  "List of route plists (:DEST :PREFIX :NEXT-HOP :METRIC) for NMIPConfig CFG."
+  (when cfg
+    (loop for r in (ptr-array-structs (gir:invoke (cfg 'get-routes)) "IPRoute")
+          collect (list :dest (gir:invoke (r 'get-dest))
+                        :prefix (gir:invoke (r 'get-prefix))
+                        :next-hop (gir:invoke (r 'get-next-hop))
+                        :metric (gir:invoke (r 'get-metric))))))
+
+(defun device-ip4-routes (device)
+  "Routes in DEVICE's IPv4 config as a list of plists."
+  (ip-config-routes (device-ip4-config device)))
+
+(defun device-ip6-routes (device)
+  "Routes in DEVICE's IPv6 config as a list of plists."
+  (ip-config-routes (device-ip6-config device)))
+
+(defun device-ip4-domains (device)
+  "DNS search domains for DEVICE's IPv4 config."
+  (ip-config-domains (device-ip4-config device)))
+
+(defun device-ip6-domains (device)
+  "DNS search domains for DEVICE's IPv6 config."
+  (ip-config-domains (device-ip6-config device)))
+
+(defun device-speed (device)
+  "Link speed in Mbit/s for an Ethernet DEVICE, or NIL for non-Ethernet."
+  (when (eq (device-type device) :ethernet)
+    (gir:invoke (device 'get-speed))))
+
+(defun device-capabilities (device)
+  "Device capability flags as a list of keywords, e.g. (:NM-SUPPORTED
+:CARRIER-DETECT)."
+  (flags->keywords "DeviceCapabilities" (gir:invoke (device 'get-capabilities))))
+
+(defun device-ports (device)
+  "List of port devices for a controller DEVICE (bond/bridge/team/etc.),
+empty for a plain device."
+  (ptr-array-objects (gir:invoke (device 'get-ports))))
+
+(defun device-vlan-id (device)
+  "VLAN id of a VLAN DEVICE, or NIL."
+  (when (eq (device-type device) :vlan)
+    (gir:invoke (device 'get-vlan-id))))
+
+(defun device-vlan-parent (device)
+  "Parent device of a VLAN DEVICE, or NIL."
+  (when (eq (device-type device) :vlan)
+    (most-derived (gir:invoke (device 'get-parent)))))
+
+;;; DHCP configuration -------------------------------------------------------
+
+(defun device-dhcp4-config (device)
+  "The NMDhcpConfig for DEVICE's IPv4 lease, or NIL."
+  (let ((cfg (gir:invoke (device 'get-dhcp4-config))))
+    (unless (null-object-p cfg) cfg)))
+
+(defun device-dhcp6-config (device)
+  "The NMDhcpConfig for DEVICE's IPv6 lease, or NIL."
+  (let ((cfg (gir:invoke (device 'get-dhcp6-config))))
+    (unless (null-object-p cfg) cfg)))
+
+(defun dhcp-options (dhcp-config)
+  "Alist of (OPTION . VALUE) strings from an NMDhcpConfig, or NIL."
+  (when dhcp-config
+    (ghash-string->alist (value-pointer (gir:invoke (dhcp-config 'get-options))))))
+
+;;; NOTE: device tx/rx statistics (the org.freedesktop.NetworkManager.Device
+;;; .Statistics D-Bus interface) are NOT exposed by libnm's client API -- there
+;;; are no nm_device_get_tx_bytes symbols and no tx-bytes/refresh-rate-ms
+;;; GObject properties (verified on libnm 1.52).  They are reachable only via
+;;; raw GDBus to that interface, which is outside this libnm binding's scope.
+
+(defun device-dhcp4-options (device)
+  "DHCPv4 lease options for DEVICE as an alist of strings (e.g.
+(\"routers\" . \"192.168.1.1\"))."
+  (dhcp-options (device-dhcp4-config device)))
+
+(defun device-dhcp6-options (device)
+  "DHCPv6 lease options for DEVICE as an alist of strings."
+  (dhcp-options (device-dhcp6-config device)))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Wi-Fi: NMDeviceWifi / NMAccessPoint
 
@@ -222,3 +304,26 @@ privacy bit together with its WPA and RSN flag sets."
 (defun ac-default6-p (ac)
   "True when AC carries the default IPv6 route."
   (gir:invoke (ac 'get-default6)))
+
+(defun ac-devices (ac)
+  "List of devices the active connection AC is realised on."
+  (ptr-array-objects (gir:invoke (ac 'get-devices))))
+
+(defun ac-connection (ac)
+  "The saved profile (NMRemoteConnection) backing AC, or NIL."
+  (most-derived (gir:invoke (ac 'get-connection))))
+
+(defun ac-vpn-p (ac)
+  "True when AC is a VPN connection."
+  (gir:invoke (ac 'get-vpn)))
+
+(defun ac-vpn-state (ac)
+  "VPN state of AC as a keyword (e.g. :ACTIVATED, :CONNECT, :NEED-AUTH), or
+NIL when AC is not a VPN connection."
+  (when (ac-vpn-p ac)
+    (enum->keyword "VpnConnectionState" (gir:invoke (ac 'get-vpn-state)))))
+
+(defun ac-vpn-banner (ac)
+  "Login banner text for a VPN connection AC, or NIL."
+  (when (ac-vpn-p ac)
+    (gir:invoke (ac 'get-banner))))

@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 
 (defpackage #:nm
   (:use #:cl)
@@ -29,6 +29,10 @@ GObject Introspection.")
    #:connectivity
    #:check-connectivity
    #:check-connectivity-async
+   #:nm-running-p
+   #:state
+   #:metered
+   #:permission
 
    ;; control toggles (v2 phase 1)
    #:set-networking-enabled
@@ -38,6 +42,7 @@ GObject Introspection.")
    ;; activation (v2 phase 2)
    #:activate
    #:deactivate
+   #:disconnect-device
 
    ;; connection construction + management (v2 phase 3)
    #:make-connection
@@ -46,6 +51,12 @@ GObject Introspection.")
    #:add-setting
    #:add-ip4-setting
    #:add-ip6-setting
+   #:add-ip-address
+   #:add-ip-route
+   #:make-vlan-connection
+   #:make-bridge-connection
+   #:make-bond-connection
+   #:make-vpn-connection
    #:connection-setting
    #:generate-uuid
    #:add-connection
@@ -106,12 +117,27 @@ GObject Introspection.")
    #:device-ip6-addresses
    #:device-ip6-gateway
    #:device-ip6-nameservers
+   #:device-ip4-routes
+   #:device-ip6-routes
+   #:device-ip4-domains
+   #:device-ip6-domains
+   #:device-speed
+   #:device-capabilities
+   #:device-ports
+   #:device-vlan-id
+   #:device-vlan-parent
+   #:device-dhcp4-config
+   #:device-dhcp6-config
+   #:device-dhcp4-options
+   #:device-dhcp6-options
+   #:dhcp-options
 
    ;; ip config
    #:ip-config-addresses
    #:ip-config-gateway
    #:ip-config-nameservers
    #:ip-config-domains
+   #:ip-config-routes
 
    ;; wi-fi
    #:wifi-device-p
@@ -136,6 +162,11 @@ GObject Introspection.")
    #:ac-state
    #:ac-default-p
    #:ac-default6-p
+   #:ac-devices
+   #:ac-connection
+   #:ac-vpn-p
+   #:ac-vpn-state
+   #:ac-vpn-banner
 
    ;; reporting
    #:summary

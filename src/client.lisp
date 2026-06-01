@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; The NMClient: the entry point into NetworkManager.  All accessors here
 ;;; are read-only and synchronous, so no GMainLoop is required.
@@ -82,6 +82,30 @@ Disabling networking deactivates every connection -- use with care."
     (call-on-loop (lambda ()
                     (gir:invoke ((client client) 'wwan-set-enabled) (and enabled t)))))
   (wwan-enabled-p client))
+
+(defun nm-running-p (&optional (client *client*))
+  "True when the NetworkManager daemon is running and reachable."
+  (gir:invoke ((client client) 'get-nm-running)))
+
+(defun state (&optional (client *client*))
+  "Overall NMState as a keyword, e.g. :CONNECTED-GLOBAL, :CONNECTED-LOCAL,
+:DISCONNECTED, :ASLEEP."
+  (enum->keyword "State" (gir:invoke ((client client) 'get-state))))
+
+(defun metered (&optional (client *client*))
+  "Whether the primary connection is metered, as a keyword: :YES, :NO,
+:GUESS-YES, :GUESS-NO or :UNKNOWN."
+  (enum->keyword "Metered" (gir:invoke ((client client) 'get-metered))))
+
+(defun permission (perm &optional (client *client*))
+  "The caller's PolicyKit result for permission PERM as a keyword.
+
+PERM is a keyword naming an NMClientPermission, e.g.
+:ENABLE-DISABLE-NETWORK, :SETTINGS-MODIFY-SYSTEM, :WIFI-SHARE-OPEN.  The
+result is :YES, :NO, :AUTH (authorization required) or :UNKNOWN."
+  (enum->keyword "ClientPermissionResult"
+                 (gir:invoke ((client client) 'get-permission-result)
+                             (gir:nget (namespace) "ClientPermission" perm))))
 
 (defun connectivity (&optional (client *client*))
   "The last-known NMConnectivityState as a keyword, e.g. :FULL, :LIMITED,

@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; Namespace acquisition and low-level GObject Introspection helpers
 ;;; shared by the rest of the binding.
@@ -39,39 +39,59 @@ its introspection data is missing.  Returns the namespace object."
 ;;; API we map those integers back to keywords using the enum descriptor's
 ;;; value table.  Lookups are cached per enum name.
 
-(defvar *enum-tables* (make-hash-table :test 'equal)
-  "Cache of ENUM-NAME -> alist of (VALUE-NAME-STRING . INTEGER).")
-
-(defun enum-table (enum-name)
-  (or (gethash enum-name *enum-tables*)
-      (setf (gethash enum-name *enum-tables*)
-            (gir:values-of (gir:nget-desc (namespace) enum-name)))))
-
 (defun keywordize (name)
   "Turn a GI value name such as \"activated\" or \"ip_config\" into a keyword."
   (intern (string-upcase (substitute #\- #\_ name)) :keyword))
 
-(defun enum->keyword (enum-name value)
-  "Decode integer VALUE of NM enum ENUM-NAME to a keyword.
+;;; Pure decoders, separated from the namespace lookup so they can be unit
+;;; tested without a running NetworkManager (see nm/test/unit).  ALIST is a
+;;; list of (VALUE-NAME-STRING . INTEGER) as returned by gir:values-of.
 
-Falls back to the raw integer when no matching value is found (for
-forward compatibility with newer libnm releases)."
-  (loop for (vname . v) in (enum-table enum-name)
-        when (eql v value)
-          return (keywordize vname)
+(defun decode-enum (alist value)
+  "Map integer VALUE to its keyword via ALIST, or return VALUE if unmatched."
+  (loop for (name . v) in alist
+        when (eql v value) return (keywordize name)
         finally (return value)))
 
-(defun flags->keywords (enum-name value)
-  "Decode integer bitfield VALUE of NM flags type ENUM-NAME to a list of
-keywords, one per set single-bit flag.  Returns NIL for an empty bitfield.
-
-Combined/zero entries in the flags table are skipped so the result is the
-set of atomic flags actually present, e.g. (:KEY-MGMT-PSK :PAIR-CCMP)."
-  (loop for (vname . v) in (enum-table enum-name)
+(defun decode-flags (alist value)
+  "Decode bitfield VALUE to the list of keywords whose single-bit flag is set."
+  (loop for (name . v) in alist
         when (and (plusp v)
                   (zerop (logand v (1- v)))   ; single bit only
                   (logtest v value))
-          collect (keywordize vname)))
+          collect (keywordize name)))
+
+(defstruct (enum-cache (:constructor %make-enum-cache))
+  "Per-enum decode tables: a value->keyword hash and the raw name/value alist."
+  (reverse (make-hash-table) :type hash-table)
+  (alist nil :type list))
+
+(defvar *enum-tables* (make-hash-table :test 'equal)
+  "Cache of ENUM-NAME -> ENUM-CACHE.")
+
+(defun enum-table (enum-name)
+  (or (gethash enum-name *enum-tables*)
+      (let* ((alist (gir:values-of (gir:nget-desc (namespace) enum-name)))
+             (reverse (make-hash-table)))
+        (loop for (name . v) in alist
+              do (setf (gethash v reverse) (keywordize name)))
+        (setf (gethash enum-name *enum-tables*)
+              (%make-enum-cache :reverse reverse :alist alist)))))
+
+(defun enum->keyword (enum-name value)
+  "Decode integer VALUE of NM enum ENUM-NAME to a keyword (O(1) lookup).
+
+Falls back to the raw integer when no matching value is found (for forward
+compatibility with newer libnm releases)."
+  (multiple-value-bind (kw present)
+      (gethash value (enum-cache-reverse (enum-table enum-name)))
+    (if present kw value)))
+
+(defun flags->keywords (enum-name value)
+  "Decode integer bitfield VALUE of NM flags type ENUM-NAME to a list of
+keywords, one per set single-bit flag.  Returns NIL for an empty bitfield,
+e.g. (:KEY-MGMT-PSK :PAIR-CCMP)."
+  (decode-flags (enum-cache-alist (enum-table enum-name)) value))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Conditions
@@ -83,13 +103,16 @@ set of atomic flags actually present, e.g. (:KEY-MGMT-PSK :PAIR-CCMP)."
              (format stream "NetworkManager error: ~A"
                      (or (nm-error-message c) (nm-error-cause c) "unknown"))))
   (:documentation "Signalled when a NetworkManager operation fails.  CAUSE
-holds the underlying cl-gobject-introspection error, if any."))
+holds a printable description of the underlying error, if any."))
 
 (defmacro with-nm-error ((&optional message) &body body)
-  "Run BODY, re-signalling any error as an NM-ERROR carrying MESSAGE."
+  "Run BODY, re-signalling any error as an NM-ERROR carrying MESSAGE.  The
+underlying error is normalised to its printed string as the CAUSE, so a
+gir-path failure (which raises a gir::gerror object) surfaces with a readable
+message rather than an opaque object."
   `(handler-case (progn ,@body)
      (nm-error (e) (error e))
-     (error (e) (error 'nm-error :message ,message :cause e))))
+     (error (e) (error 'nm-error :message ,message :cause (princ-to-string e)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Object helpers
@@ -106,6 +129,14 @@ null foreign pointer)."
     `(let ((,o ,object))
        (unless (null-object-p ,o)
          (gir:invoke (,o ,method))))))
+
+(defun value-pointer (x)
+  "The raw foreign pointer behind a gir wrapper X (struct or object instance),
+X itself if it is already a pointer, or a NULL pointer for NIL.  Used to reach
+unmarshaled containers (GHashTable, GPtrArray) that gir hands back wrapped."
+  (cond ((null x) (cffi:null-pointer))
+        ((cffi:pointerp x) x)
+        (t (gir::this-of x))))
 
 ;;; ---------------------------------------------------------------------------
 ;;; GPtrArray unpacking
@@ -175,7 +206,12 @@ Returns NIL when BYTES is NULL."
 guaranteed to be valid UTF-8, so undecodable input falls back to a
 Latin-1 reading rather than signalling."
   (when octets
-    (handler-case
-        (sb-ext:octets-to-string octets :external-format :utf-8)
-      (error ()
-        (map 'string #'code-char octets)))))
+    (let ((octets (coerce octets '(simple-array (unsigned-byte 8) (*)))))
+      (handler-case
+          (babel:octets-to-string octets :encoding :utf-8)
+        (error ()
+          (babel:octets-to-string octets :encoding :latin-1))))))
+
+(defun string->octets (string)
+  "Encode STRING to a UTF-8 octet vector."
+  (babel:string-to-octets string :encoding :utf-8))

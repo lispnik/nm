@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; Low-level GObject/CFFI helpers shared by the v2 layers: loading the
 ;;; foreign libraries, the lazy GLib namespace, and a GValue-based setter for
@@ -124,3 +124,31 @@ SSID (a GBytes).  GTYPE is typically obtained from a `..._get_type' call."
     (%g-value-set-boxed val boxed-ptr)
     (%g-object-set-property (gir::this-of object) name val)
     (%g-value-unset val)))
+
+;;; ---------------------------------------------------------------------------
+;;; GHashTable<string,string> unpacking
+;;;
+;;; Like GPtrArray, GHashTable isn't marshaled by cl-gobject-introspection, so
+;;; we iterate it by hand.  Used for DHCP option dictionaries.
+
+(cffi:defcfun ("g_hash_table_iter_init" %g-hash-table-iter-init) :void
+  (iter :pointer)
+  (table :pointer))
+
+(cffi:defcfun ("g_hash_table_iter_next" %g-hash-table-iter-next) :boolean
+  (iter :pointer)
+  (key :pointer)
+  (value :pointer))
+
+(defun ghash-string->alist (table-ptr)
+  "Unpack a GHashTable<string,string> (a raw foreign pointer) into an alist of
+(KEY . VALUE) strings.  Returns NIL for a NULL table."
+  (ensure-libnm)
+  (when (and table-ptr (not (cffi:null-pointer-p table-ptr)))
+    ;; GHashTableIter is an opaque struct of a handful of pointers; 8 is ample.
+    (cffi:with-foreign-object (iter :pointer 8)
+      (cffi:with-foreign-objects ((key :pointer) (value :pointer))
+        (%g-hash-table-iter-init iter table-ptr)
+        (loop while (%g-hash-table-iter-next iter key value)
+              collect (cons (cffi:foreign-string-to-lisp (cffi:mem-ref key :pointer))
+                            (cffi:foreign-string-to-lisp (cffi:mem-ref value :pointer))))))))

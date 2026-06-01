@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; Mutation test suite for the v2 management layer.  Unlike nm/test (which is
 ;;; read-only and safe), this CREATES, ACTIVATES, MODIFIES and DELETES a real

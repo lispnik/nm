@@ -2,7 +2,7 @@
 ;;;
 ;;; SPDX-License-Identifier: MIT
 ;;;
-;;; Copyright (C) 2026 Your Name
+;;; Copyright (C) 2026 Matthew Kennedy
 ;;;
 ;;; v2 Phase 5: event monitoring plus ACTIVATE-AND-WAIT (which blocks until an
 ;;; activation settles by watching the active connection's state-changed
@@ -77,15 +77,15 @@ the shared event loop and waiting on a condition variable."
   (when (eq (ac-state ac) :activated)
     (return-from await-active ac))
   (ensure-event-loop)
-  (let ((lock (sb-thread:make-mutex :name "nm-await"))
-        (cv (sb-thread:make-waitqueue))
+  (let ((lock (bt:make-lock "nm-await"))
+        (cv (bt:make-condition-variable))
         (problem nil)
         (done nil))
     (labels ((settle (&optional err)
-               (sb-thread:with-mutex (lock)
+               (bt:with-lock-held (lock)
                  (when err (setf problem err))
                  (setf done t)
-                 (sb-thread:condition-notify cv))))
+                 (bt:condition-notify cv))))
       (let ((handler-id
               (gir:connect ac "state-changed"
                            (lambda (obj new reason)
@@ -98,9 +98,9 @@ the shared event loop and waiting on a condition variable."
         ;; Guard against the state settling between ACTIVATE returning and the
         ;; handler being connected.
         (when (eq (ac-state ac) :activated) (settle))
-        (sb-thread:with-mutex (lock)
+        (bt:with-lock-held (lock)
           (loop until done do
-            (unless (sb-thread:condition-wait cv lock :timeout timeout)
+            (unless (bt:condition-wait cv lock :timeout timeout)
               (unless done (setf problem "activation timed out" done t)))))
         (ignore-errors (disconnect-handler ac handler-id))))
     (when problem (error 'nm-error :message problem))
