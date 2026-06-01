@@ -20,9 +20,15 @@ NetworkManager daemon over D-Bus and populating its object cache.
 When DEFAULT is true (the default) the new client is also stored in
 *CLIENT* so the other query functions can be called without arguments.
 
-Signals an NM-ERROR if NetworkManager is not running or cannot be reached."
-  (let ((client (with-nm-error ("could not connect to NetworkManager")
-                  (gir:invoke ((namespace) "Client" 'new) nil))))
+Signals an NM-ERROR if NetworkManager is not running or cannot be reached.
+
+The client is created on the shared event-loop thread (see loop.lisp) so it
+binds to, and its signals dispatch on, the one thread that owns the
+GMainContext."
+  (let ((client (call-on-loop
+                 (lambda ()
+                   (with-nm-error ("could not connect to NetworkManager")
+                     (gir:invoke ((namespace) "Client" 'new) nil))))))
     (when default
       (setf *client* client))
     client))
@@ -59,19 +65,22 @@ Signals an NM-ERROR if NetworkManager is not running or cannot be reached."
   "Globally enable or disable all networking.  Returns the resulting state.
 Disabling networking deactivates every connection -- use with care."
   (with-nm-error ("could not change networking state")
-    (gir:invoke ((client client) 'networking-set-enabled) (and enabled t)))
+    (call-on-loop (lambda ()
+                    (gir:invoke ((client client) 'networking-set-enabled) (and enabled t)))))
   (networking-enabled-p client))
 
 (defun set-wireless-enabled (enabled &optional (client *client*))
   "Enable or disable Wi-Fi (the radio kill switch).  Returns the resulting state."
   (with-nm-error ("could not change wireless state")
-    (gir:invoke ((client client) 'wireless-set-enabled) (and enabled t)))
+    (call-on-loop (lambda ()
+                    (gir:invoke ((client client) 'wireless-set-enabled) (and enabled t)))))
   (wireless-enabled-p client))
 
 (defun set-wwan-enabled (enabled &optional (client *client*))
   "Enable or disable mobile broadband (WWAN).  Returns the resulting state."
   (with-nm-error ("could not change WWAN state")
-    (gir:invoke ((client client) 'wwan-set-enabled) (and enabled t)))
+    (call-on-loop (lambda ()
+                    (gir:invoke ((client client) 'wwan-set-enabled) (and enabled t)))))
   (wwan-enabled-p client))
 
 (defun connectivity (&optional (client *client*))

@@ -405,4 +405,7 @@ first Wi-Fi device found."
 
 (defun main ()
   "Entry point for the nm CLI executable."
-  (clingon:run (toplevel)))
+  ;; Stop the shared event loop on the way out so a parked loop thread can't
+  ;; delay process shutdown.
+  (unwind-protect (clingon:run (toplevel))
+    (ignore-errors (nm:stop-event-loop))))

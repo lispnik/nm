@@ -49,60 +49,9 @@ report but carrying the GError text as the cause."
         (%g-error-free err)
         (error 'nm-error :message (or message text) :cause text)))))
 
-;;; GAsyncReadyCallback bridge
-;;;
-;;; A single static callback fans out to per-call Lisp continuations keyed on
-;;; the user_data token (a freshly allocated cell whose address is the key).
-
-(defvar *pending-callbacks* (make-hash-table)
-  "Maps the integer address of a user_data token to its Lisp continuation.")
-
-(defun %register-continuation (fn)
-  "Allocate a user_data token bound to continuation FN; returns the token."
-  (let ((token (cffi:foreign-alloc :int)))
-    (setf (gethash (cffi:pointer-address token) *pending-callbacks*) fn)
-    token))
-
-(defun %take-continuation (token)
-  "Look up and unregister the continuation for TOKEN, freeing the token."
-  (let ((addr (cffi:pointer-address token)))
-    (multiple-value-prog1 (gethash addr *pending-callbacks*)
-      (remhash addr *pending-callbacks*)
-      (cffi:foreign-free token))))
-
-(cffi:defcallback %async-ready :void
-    ((source :pointer) (result :pointer) (user-data :pointer))
-  "The C entry point libnm invokes when an async op completes."
-  (let ((cont (%take-continuation user-data)))
-    (when cont
-      (funcall cont source result))))
-
-;;; Synchronous facade
-
-(defun call-async-sync (start finish)
-  "Drive an asynchronous libnm operation to completion synchronously.
-
-START is called with (CALLBACK-PTR TOKEN) and must launch the async op,
-passing CALLBACK-PTR as its GAsyncReadyCallback and TOKEN as its user_data.
-FINISH is called with (SOURCE-PTR RESULT-PTR) from within the completion
-callback and should call the matching `..._finish' and return a value (or
-signal).  A private GLib main loop runs until the callback fires; the value
-returned by FINISH is returned here, and any error it signals is re-raised
-on the calling thread."
-  (let* ((glib (glib-namespace))
-         (mloop (gir:invoke (glib "MainLoop" 'new) nil nil))
-         (outcome nil)
-         (problem nil))
-    (let ((token (%register-continuation
-                  (lambda (source result)
-                    (handler-case
-                        (setf outcome (funcall finish source result))
-                      (error (e) (setf problem e)))
-                    (gir:invoke (mloop 'quit))))))
-      (funcall start (cffi:callback %async-ready) token)
-      (gir:invoke (mloop 'run)))
-    (when problem (error problem))
-    outcome))
+;;; (The continuation registry, the GAsyncReadyCallback bridge, the shared
+;;; event loop, and CALL-ASYNC-SYNC live in loop.lisp, which loads before this
+;;; file.)
 
 ;;; Reference consumer: connectivity check via the async API
 ;;;
@@ -132,9 +81,9 @@ async core (the GAsyncReadyCallback bridge and CALL-ASYNC-SYNC facade)."
     (enum->keyword
      "ConnectivityState"
      (call-async-sync
-      (lambda (callback token)
+      (lambda (callback token cancellable)
         (%nm-client-check-connectivity-async
-         client-ptr (cffi:null-pointer) callback token))
+         client-ptr cancellable callback token))
       (lambda (source result)
         (declare (ignore source))
         (cffi:with-foreign-object (err :pointer)
@@ -198,22 +147,20 @@ optional object path (e.g. a Wi-Fi AP's path).  Signals NM-ERROR on failure
         (conn-ptr (if connection (gir::this-of connection) (cffi:null-pointer)))
         (dev-ptr (%resolve-device device client)))
     (call-async-sync
-     (lambda (callback token)
+     (lambda (callback token cancellable)
        (%nm-client-activate-connection-async
         client-ptr conn-ptr dev-ptr
         (or specific-object (cffi:null-pointer)) ; :string accepts a string or a pointer, not NIL
-        (cffi:null-pointer) callback token))
+        cancellable callback token))
      (lambda (source result)
        (declare (ignore source))
        (cffi:with-foreign-object (err :pointer)
          (setf (cffi:mem-ref err :pointer) (cffi:null-pointer))
          (let ((ac (%nm-client-activate-connection-finish client-ptr result err)))
            (maybe-signal-gerror err "activation failed")
-           ;; transfer-full: we own a ref on the returned NMActiveConnection.
-           ;; Wrapped without explicit unref for now (one ref held); revisit
-           ;; with proper ownership management in a later phase.
+           ;; transfer-full: adopt the returned NMActiveConnection's ref.
            (unless (cffi:null-pointer-p ac)
-             (gir::gobject (gir::gtype ac) ac))))))))
+             (adopt-ref (gir::gobject (gir::gtype ac) ac)))))))))
 
 (defun deactivate (active-connection &optional (client *client*))
   "Deactivate ACTIVE-CONNECTION (an NMActiveConnection, e.g. from
@@ -223,9 +170,9 @@ responds.  Returns T on success; signals NM-ERROR on failure."
   (let ((client-ptr (gir::this-of (client client)))
         (ac-ptr (gir::this-of active-connection)))
     (call-async-sync
-     (lambda (callback token)
+     (lambda (callback token cancellable)
        (%nm-client-deactivate-connection-async
-        client-ptr ac-ptr (cffi:null-pointer) callback token))
+        client-ptr ac-ptr cancellable callback token))
      (lambda (source result)
        (declare (ignore source))
        (cffi:with-foreign-object (err :pointer)
@@ -290,17 +237,18 @@ verification errors and PolicyKit denials)."
   (let ((client-ptr (gir::this-of (client client)))
         (conn-ptr (gir::this-of connection)))
     (call-async-sync
-     (lambda (callback token)
+     (lambda (callback token cancellable)
        (%nm-client-add-connection-async
-        client-ptr conn-ptr (and save t) (cffi:null-pointer) callback token))
+        client-ptr conn-ptr (and save t) cancellable callback token))
      (lambda (source result)
        (declare (ignore source))
        (cffi:with-foreign-object (err :pointer)
          (setf (cffi:mem-ref err :pointer) (cffi:null-pointer))
          (let ((rc (%nm-client-add-connection-finish client-ptr result err)))
            (maybe-signal-gerror err "add-connection failed")
+           ;; transfer-full: adopt the returned NMRemoteConnection's ref.
            (unless (cffi:null-pointer-p rc)
-             (gir::gobject (gir::gtype rc) rc))))))))
+             (adopt-ref (gir::gobject (gir::gtype rc) rc)))))))))
 
 (defun update-connection (profile &key (save t))
   "Commit in-memory changes made to the saved PROFILE (an NMRemoteConnection)
@@ -310,9 +258,9 @@ signals NM-ERROR on failure."
   (ensure-libnm)
   (let ((conn-ptr (gir::this-of profile)))
     (call-async-sync
-     (lambda (callback token)
+     (lambda (callback token cancellable)
        (%nm-remote-connection-commit-changes-async
-        conn-ptr (and save t) (cffi:null-pointer) callback token))
+        conn-ptr (and save t) cancellable callback token))
      (lambda (source result)
        (declare (ignore source))
        (cffi:with-foreign-object (err :pointer)
@@ -328,9 +276,9 @@ blocking until it responds.  Returns T; signals NM-ERROR on failure."
   (ensure-libnm)
   (let ((conn-ptr (gir::this-of profile)))
     (call-async-sync
-     (lambda (callback token)
+     (lambda (callback token cancellable)
        (%nm-remote-connection-delete-async
-        conn-ptr (cffi:null-pointer) callback token))
+        conn-ptr cancellable callback token))
      (lambda (source result)
        (declare (ignore source))
        (cffi:with-foreign-object (err :pointer)
@@ -372,11 +320,11 @@ failure."
         (conn-ptr (gir::this-of connection))
         (dev-ptr (%resolve-device device client)))
     (call-async-sync
-     (lambda (callback token)
+     (lambda (callback token cancellable)
        (%nm-client-add-and-activate-connection-async
         client-ptr conn-ptr dev-ptr
         (or specific-object (cffi:null-pointer))
-        (cffi:null-pointer) callback token))
+        cancellable callback token))
      (lambda (source result)
        (declare (ignore source))
        (cffi:with-foreign-object (err :pointer)
@@ -384,8 +332,9 @@ failure."
          (let ((ac (%nm-client-add-and-activate-connection-finish
                     client-ptr result err)))
            (maybe-signal-gerror err "add-and-activate failed")
+           ;; transfer-full: adopt the returned NMActiveConnection's ref.
            (unless (cffi:null-pointer-p ac)
-             (gir::gobject (gir::gtype ac) ac))))))))
+             (adopt-ref (gir::gobject (gir::gtype ac) ac)))))))))
 
 (defun connect-wifi (ssid &key psk device hidden (client *client*))
   "Connect to the Wi-Fi network SSID (a string), optionally authenticating

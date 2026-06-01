@@ -30,18 +30,22 @@
 (cffi:define-foreign-library libgobject
   (t (:or "libgobject-2.0.so.0" "libgobject-2.0.so" "libgobject-2.0.dylib")))
 
+(cffi:define-foreign-library libgio
+  (t (:or "libgio-2.0.so.0" "libgio-2.0.so" "libgio-2.0.dylib")))
+
 (cffi:define-foreign-library libnm
   (t (:or "libnm.so.0" "libnm.so" "libnm.dylib")))
 
 (defvar *foreign-loaded* nil)
 
 (defun ensure-libnm ()
-  "Load libglib, libgobject and libnm into the process so the raw CFFI calls
-in the v2 layer can resolve their symbols.  Idempotent."
+  "Load libglib, libgobject, libgio and libnm into the process so the raw CFFI
+calls in the v2 layer can resolve their symbols.  Idempotent."
   (or *foreign-loaded*
       (setf *foreign-loaded*
             (progn (cffi:use-foreign-library libglib)
                    (cffi:use-foreign-library libgobject)
+                   (cffi:use-foreign-library libgio)
                    (cffi:use-foreign-library libnm)
                    t))))
 
@@ -80,6 +84,31 @@ in the v2 layer can resolve their symbols.  Idempotent."
   (value :pointer))
 
 (cffi:defcfun ("g_bytes_get_type" %g-bytes-get-type) :unsigned-long)
+
+;;; ---------------------------------------------------------------------------
+;;; Reference ownership and cancellation
+
+(cffi:defcfun ("g_object_unref" %g-object-unref) :void
+  (object :pointer))
+
+(cffi:defcfun ("g_cancellable_new" %g-cancellable-new) :pointer)
+
+(cffi:defcfun ("g_cancellable_cancel" %g-cancellable-cancel) :void
+  (cancellable :pointer))
+
+(defun adopt-ref (object)
+  "Take ownership of one (transfer-full) reference on the gir OBJECT, releasing
+it with g_object_unref when the Lisp wrapper is garbage-collected.
+
+Use for objects returned by libnm `..._finish' calls that we wrap by hand via
+gir::gobject (which, unlike gir's own return path, sets up no GC).  Adopts the
+existing reference -- it does NOT take an additional one."
+  (when object
+    (let ((address (cffi:pointer-address (gir::this-of object))))
+      (trivial-garbage:finalize
+       object
+       (lambda () (%g-object-unref (cffi:make-pointer address))))))
+  object)
 
 (defun set-boxed-property (object name gtype boxed-ptr)
   "Set the boxed-typed GObject property NAME of gir OBJECT to BOXED-PTR (a

@@ -9,11 +9,12 @@
   :author      "Your Name"
   :license     "MIT"
   :version     "0.1.0"
-  :depends-on  ("cffi" "cl-gobject-introspection")
+  :depends-on  ("cffi" "cl-gobject-introspection" "trivial-garbage")
   :serial t
   :components ((:file "src/package")
                (:file "src/library")
                (:file "src/gvalue")
+               (:file "src/loop")
                (:file "src/client")
                (:file "src/device")
                (:file "src/connection")
@@ -41,3 +42,12 @@
   :depends-on  ("nm")
   :serial t
   :components ((:file "src/test")))
+
+(asdf:defsystem #:nm/test/mutation
+  :description "Gated mutation tests (NM_TEST_MUTATE=1; requires root + NetworkManager)."
+  :author      "Your Name"
+  :license     "MIT"
+  :version     "0.1.0"
+  :depends-on  ("nm")
+  :serial t
+  :components ((:file "src/test-mutation")))
