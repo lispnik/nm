@@ -60,30 +60,60 @@ not-yet-instantiated virtual device."
 
 ;;; IPv4 configuration -------------------------------------------------------
 
+;;; The IPv4 and IPv6 configs are both NMIPConfig instances, so a single
+;;; set of unpackers serves both families.
+
+(defun ip-config-addresses (cfg)
+  "List of (ADDRESS . PREFIX) conses for NMIPConfig CFG, or NIL."
+  (when cfg
+    (loop for addr in (ptr-array-structs (gir:invoke (cfg 'get-addresses))
+                                         "IPAddress")
+          collect (cons (gir:invoke (addr 'get-address))
+                        (gir:invoke (addr 'get-prefix))))))
+
+(defun ip-config-gateway (cfg)
+  (when cfg (gir:invoke (cfg 'get-gateway))))
+
+(defun ip-config-nameservers (cfg)
+  (when cfg (coerce (gir:invoke (cfg 'get-nameservers)) 'list)))
+
+(defun ip-config-domains (cfg)
+  (when cfg (coerce (gir:invoke (cfg 'get-domains)) 'list)))
+
 (defun device-ip4-config (device)
+  "The NMIPConfig for DEVICE's IPv4 configuration, or NIL."
   (let ((cfg (gir:invoke (device 'get-ip4-config))))
+    (unless (null-object-p cfg) cfg)))
+
+(defun device-ip6-config (device)
+  "The NMIPConfig for DEVICE's IPv6 configuration, or NIL."
+  (let ((cfg (gir:invoke (device 'get-ip6-config))))
     (unless (null-object-p cfg) cfg)))
 
 (defun device-ip4-addresses (device)
   "List of (ADDRESS . PREFIX) conses for DEVICE's current IPv4 config,
 e.g. ((\"192.168.1.42\" . 24)).  Empty when the device has no IPv4 config."
-  (let ((cfg (device-ip4-config device)))
-    (when cfg
-      (loop for addr in (ptr-array-structs (gir:invoke (cfg 'get-addresses))
-                                           "IPAddress")
-            collect (cons (gir:invoke (addr 'get-address))
-                          (gir:invoke (addr 'get-prefix)))))))
+  (ip-config-addresses (device-ip4-config device)))
 
 (defun device-ip4-gateway (device)
   "The IPv4 gateway string for DEVICE, or NIL."
-  (let ((cfg (device-ip4-config device)))
-    (when cfg (gir:invoke (cfg 'get-gateway)))))
+  (ip-config-gateway (device-ip4-config device)))
 
 (defun device-ip4-nameservers (device)
   "List of IPv4 nameserver address strings for DEVICE."
-  (let ((cfg (device-ip4-config device)))
-    (when cfg
-      (coerce (gir:invoke (cfg 'get-nameservers)) 'list))))
+  (ip-config-nameservers (device-ip4-config device)))
+
+(defun device-ip6-addresses (device)
+  "List of (ADDRESS . PREFIX) conses for DEVICE's current IPv6 config."
+  (ip-config-addresses (device-ip6-config device)))
+
+(defun device-ip6-gateway (device)
+  "The IPv6 gateway string for DEVICE, or NIL."
+  (ip-config-gateway (device-ip6-config device)))
+
+(defun device-ip6-nameservers (device)
+  "List of IPv6 nameserver address strings for DEVICE."
+  (ip-config-nameservers (device-ip6-config device)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Wi-Fi: NMDeviceWifi / NMAccessPoint
@@ -134,6 +164,38 @@ for a hidden network."
 (defun ap-mode (ap)
   "The 802.11 mode of AP as a keyword, e.g. :INFRA, :ADHOC, :AP, :MESH."
   (enum->keyword "80211Mode" (gir:invoke (ap 'get-mode))))
+
+(defun ap-flags (ap)
+  "General capability flags of AP as a list of keywords (e.g. :PRIVACY, :WPS)."
+  (flags->keywords "80211ApFlags" (gir:invoke (ap 'get-flags))))
+
+(defun ap-wpa-flags (ap)
+  "WPA (legacy/RSN-independent) security flags of AP as a list of keywords."
+  (flags->keywords "80211ApSecurityFlags" (gir:invoke (ap 'get-wpa-flags))))
+
+(defun ap-rsn-flags (ap)
+  "RSN (WPA2/WPA3) security flags of AP as a list of keywords."
+  (flags->keywords "80211ApSecurityFlags" (gir:invoke (ap 'get-rsn-flags))))
+
+(defun ap-security (ap)
+  "A high-level summary of AP's security as a list of protocol keywords,
+drawn from :OPEN :WEP :WPA :WPA2 :WPA3 :ENTERPRISE :OWE.
+
+This mirrors how nmcli classifies access points: it inspects the AP's
+privacy bit together with its WPA and RSN flag sets."
+  (let* ((flags (ap-flags ap))
+         (wpa (ap-wpa-flags ap))
+         (rsn (ap-rsn-flags ap))
+         (result '()))
+    (flet ((either (k) (or (member k wpa) (member k rsn))))
+      (when (and (null wpa) (null rsn))
+        (push (if (member :privacy flags) :wep :open) result))
+      (when wpa (push :wpa result))
+      (when rsn (push (if (member :key-mgmt-sae rsn) :wpa3 :wpa2) result))
+      (when (either :key-mgmt-802-1x) (push :enterprise result))
+      (when (or (either :key-mgmt-owe) (either :key-mgmt-owe-tm))
+        (push :owe result)))
+    (nreverse result)))
 
 ;;; ---------------------------------------------------------------------------
 ;;; NMActiveConnection

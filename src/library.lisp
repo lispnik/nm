@@ -61,6 +61,36 @@ forward compatibility with newer libnm releases)."
           return (keywordize vname)
         finally (return value)))
 
+(defun flags->keywords (enum-name value)
+  "Decode integer bitfield VALUE of NM flags type ENUM-NAME to a list of
+keywords, one per set single-bit flag.  Returns NIL for an empty bitfield.
+
+Combined/zero entries in the flags table are skipped so the result is the
+set of atomic flags actually present, e.g. (:KEY-MGMT-PSK :PAIR-CCMP)."
+  (loop for (vname . v) in (enum-table enum-name)
+        when (and (plusp v)
+                  (zerop (logand v (1- v)))   ; single bit only
+                  (logtest v value))
+          collect (keywordize vname)))
+
+;;; ---------------------------------------------------------------------------
+;;; Conditions
+
+(define-condition nm-error (error)
+  ((message :initarg :message :initform nil :reader nm-error-message)
+   (cause :initarg :cause :initform nil :reader nm-error-cause))
+  (:report (lambda (c stream)
+             (format stream "NetworkManager error: ~A"
+                     (or (nm-error-message c) (nm-error-cause c) "unknown"))))
+  (:documentation "Signalled when a NetworkManager operation fails.  CAUSE
+holds the underlying cl-gobject-introspection error, if any."))
+
+(defmacro with-nm-error ((&optional message) &body body)
+  "Run BODY, re-signalling any error as an NM-ERROR carrying MESSAGE."
+  `(handler-case (progn ,@body)
+     (nm-error (e) (error e))
+     (error (e) (error 'nm-error :message ,message :cause e))))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Object helpers
 
@@ -84,6 +114,13 @@ null foreign pointer)."
 ;;; falls through to a raw foreign pointer (see PARSE-ARRAY-TYPE-INFO).  NM
 ;;; uses GPtrArray pervasively (device lists, access points, IP addresses),
 ;;; so we unpack it by hand and re-wrap each element as a gir object.
+;;;
+;;; LIFETIME: these accessors return (transfer none) data owned by the
+;;; NMClient's object cache.  The wrapper objects we hand back do not take
+;;; a reference, so they are only valid while the originating NMClient (and
+;;; for IP-address structs, the owning NMIPConfig) is alive and unchanged.
+;;; Treat all returned objects as snapshots: read what you need promptly
+;;; rather than stashing them across the client's lifetime.
 
 (cffi:defcstruct g-ptr-array
   (pdata :pointer)

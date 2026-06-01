@@ -20,8 +20,9 @@ NetworkManager daemon over D-Bus and populating its object cache.
 When DEFAULT is true (the default) the new client is also stored in
 *CLIENT* so the other query functions can be called without arguments.
 
-Signals an error if NetworkManager is not running or cannot be reached."
-  (let ((client (gir:invoke ((namespace) "Client" 'new) nil)))
+Signals an NM-ERROR if NetworkManager is not running or cannot be reached."
+  (let ((client (with-nm-error ("could not connect to NetworkManager")
+                  (gir:invoke ((namespace) "Client" 'new) nil))))
     (when default
       (setf *client* client))
     client))
@@ -45,6 +46,33 @@ Signals an error if NetworkManager is not running or cannot be reached."
 
 (defun wwan-enabled-p (&optional (client *client*))
   (gir:invoke ((client client) 'wwan-get-enabled)))
+
+;;; ---------------------------------------------------------------------------
+;;; Control toggles (v2 Phase 1)
+;;;
+;;; These are synchronous libnm calls -- no main loop required -- so they are
+;;; the simplest mutating operations.  Each returns the resulting state as
+;;; read back from the client (best effort: the cached property updates as
+;;; the daemon's change signal is processed).
+
+(defun set-networking-enabled (enabled &optional (client *client*))
+  "Globally enable or disable all networking.  Returns the resulting state.
+Disabling networking deactivates every connection -- use with care."
+  (with-nm-error ("could not change networking state")
+    (gir:invoke ((client client) 'networking-set-enabled) (and enabled t)))
+  (networking-enabled-p client))
+
+(defun set-wireless-enabled (enabled &optional (client *client*))
+  "Enable or disable Wi-Fi (the radio kill switch).  Returns the resulting state."
+  (with-nm-error ("could not change wireless state")
+    (gir:invoke ((client client) 'wireless-set-enabled) (and enabled t)))
+  (wireless-enabled-p client))
+
+(defun set-wwan-enabled (enabled &optional (client *client*))
+  "Enable or disable mobile broadband (WWAN).  Returns the resulting state."
+  (with-nm-error ("could not change WWAN state")
+    (gir:invoke ((client client) 'wwan-set-enabled) (and enabled t)))
+  (wwan-enabled-p client))
 
 (defun connectivity (&optional (client *client*))
   "The last-known NMConnectivityState as a keyword, e.g. :FULL, :LIMITED,
@@ -77,3 +105,43 @@ or NIL if there is none."
   "The active connection that owns the default route, or NIL."
   (let ((ac (gir:invoke ((client client) 'get-primary-connection))))
     (unless (null-object-p ac) ac)))
+
+;;; ---------------------------------------------------------------------------
+;;; Saved connection profiles (NMRemoteConnection)
+;;;
+;;; These are the stored profiles NetworkManager can activate, as opposed to
+;;; the currently *active* connections above.  Read-only accessors only.
+
+(defun connections (&optional (client *client*))
+  "List of all saved connection profiles (NMRemoteConnection)."
+  (ptr-array-objects (gir:invoke ((client client) 'get-connections))))
+
+(defun find-connection (uuid &optional (client *client*))
+  "Return the saved profile with the given UUID, or NIL."
+  (let ((c (gir:invoke ((client client) 'get-connection-by-uuid) uuid)))
+    (unless (null-object-p c) c)))
+
+(defun connection-id (connection)
+  "Human-readable name of the saved profile."
+  (gir:invoke (connection 'get-id)))
+
+(defun connection-uuid (connection)
+  (gir:invoke (connection 'get-uuid)))
+
+(defun connection-type (connection)
+  "Connection type string, e.g. \"802-11-wireless\" or \"802-3-ethernet\"."
+  (gir:invoke (connection 'get-connection-type)))
+
+(defun connection-interface (connection)
+  "The interface name the profile is bound to, or NIL if unbound."
+  (gir:invoke (connection 'get-interface-name)))
+
+(defun connection-path (connection)
+  "The D-Bus object path of the saved profile."
+  (gir:invoke (connection 'get-path)))
+
+(defun connection-autoconnect-p (connection)
+  "True when the profile is configured to auto-connect."
+  (let ((setting (gir:invoke (connection 'get-setting-connection))))
+    (unless (null-object-p setting)
+      (gir:invoke (setting 'get-autoconnect)))))
