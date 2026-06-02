@@ -131,6 +131,18 @@ GObject Introspection.")
    #:device-dhcp4-options
    #:device-dhcp6-options
    #:dhcp-options
+   #:device-path
+   #:enable-statistics
+   #:device-tx-bytes
+   #:device-rx-bytes
+   #:device-statistics
+
+   ;; raw D-Bus property access (for NM features libnm omits)
+   #:dbus-get-property
+   #:dbus-set-property
+   #:dbus-get-all
+   #:dbus-call
+   #:system-bus
 
    ;; ip config
    #:ip-config-addresses

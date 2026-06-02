@@ -21,6 +21,8 @@
                (:file "src/connection")
                (:file "src/async")
                (:file "src/monitor")
+               (:file "src/dbus")
+               (:file "src/statistics")
                (:file "src/main")))
 
 (asdf:defsystem #:nm/cli

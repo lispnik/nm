@@ -127,6 +127,15 @@ Without building an executable you can also run it via
   `device-capabilities`, `device-ports`, `device-vlan-id` / `device-vlan-parent`
 - **DHCP:** `device-dhcp4-options` / `device-dhcp6-options` (string alists),
   `device-dhcp4-config` / `device-dhcp6-config`, `dhcp-options`
+- **Statistics:** `device-statistics` (→ `(:tx … :rx …)`), `enable-statistics`,
+  `device-tx-bytes`, `device-rx-bytes`, `device-path`. libnm doesn't expose
+  device statistics, so these talk to the `Device.Statistics` D-Bus interface
+  directly; counters are unavailable until `enable-statistics` sets a refresh
+  rate (`:interval-ms 0` stops polling).
+- **Raw D-Bus:** `dbus-get-property` / `dbus-set-property` (typed:
+  `:string`/`:boolean`/`:uint32`/`:uint64`/…), `dbus-get-all` (whole interface
+  as an alist), and `dbus-call` reach NM features libnm omits, marshaling
+  GVariant scalars, arrays, and `a{sv}` dicts to/from Lisp.
 - **Active connections:** `ac-id`, `ac-uuid`, `ac-type`, `ac-state`,
   `ac-default-p`, `ac-devices`, `ac-connection`, `ac-vpn-p`, `ac-vpn-state`,
   `ac-vpn-banner`
