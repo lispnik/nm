@@ -368,14 +368,18 @@ failure."
              (adopt-ref (gir::gobject (gir::gtype ac) ac)))))))))
 
 (defun connect-wifi (ssid &key psk device hidden (key-mgmt "wpa-psk")
-                               (client *client*))
-  "Connect to the Wi-Fi network SSID (a string), optionally authenticating
-with passphrase PSK (KEY-MGMT \"wpa-psk\" for WPA/WPA2, \"sae\" for WPA3).
+                               eap identity eap-password (client *client*))
+  "Connect to the Wi-Fi network SSID (a string).
+
+Personal: pass PSK (KEY-MGMT \"wpa-psk\" for WPA/WPA2, \"sae\" for WPA3).
+Enterprise: pass EAP (e.g. \"peap\") with IDENTITY and EAP-PASSWORD.
 
 Builds a new Wi-Fi profile (see MAKE-WIFI-CONNECTION) and add-and-activates it
 on DEVICE (a Wi-Fi device object or interface-name string; NIL lets NM choose
 a Wi-Fi device).  HIDDEN marks the SSID as non-broadcast.  Returns the
 resulting NMActiveConnection; activation may still be in progress on return."
   (add-and-activate (make-wifi-connection ssid :psk psk :hidden hidden
-                                               :key-mgmt key-mgmt)
+                                               :key-mgmt key-mgmt :eap eap
+                                               :identity identity
+                                               :eap-password eap-password)
                     :device device :client client))

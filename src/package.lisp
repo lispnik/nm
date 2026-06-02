@@ -17,6 +17,7 @@ GObject Introspection.")
    ;; setup
    #:ensure-loaded
    #:namespace
+   #:null-object-p
    #:make-client
    #:*client*
    #:client

@@ -100,8 +100,14 @@ e.g. (:KEY-MGMT-PSK :PAIR-CCMP)."
   ((message :initarg :message :initform nil :reader nm-error-message)
    (cause :initarg :cause :initform nil :reader nm-error-cause))
   (:report (lambda (c stream)
-             (format stream "NetworkManager error: ~A"
-                     (or (nm-error-message c) (nm-error-cause c) "unknown"))))
+             (let ((message (nm-error-message c))
+                   (cause (nm-error-cause c)))
+               (cond ((and message cause
+                           (not (string= (princ-to-string message)
+                                         (princ-to-string cause))))
+                      (format stream "NetworkManager error: ~A (~A)" message cause))
+                     (t (format stream "NetworkManager error: ~A"
+                                (or message cause "unknown")))))))
   (:documentation "Signalled when a NetworkManager operation fails.  CAUSE
 holds a printable description of the underlying error, if any."))
 

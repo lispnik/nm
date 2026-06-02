@@ -25,6 +25,8 @@
 (defun device-path (device)
   "The D-Bus object path of DEVICE, e.g.
 \"/org/freedesktop/NetworkManager/Devices/3\"."
+  (when (null-object-p device)
+    (error 'nm-error :message "device-path: no such device (got NIL -- check the interface name)"))
   (ensure-libnm)
   (%nm-object-get-path (gir::this-of device)))
 

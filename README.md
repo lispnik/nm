@@ -70,35 +70,44 @@ sbcl --eval "(asdf:make :nm/cli)" --quit   # produces ./nm-cli
 ```console
 $ ./nm-cli --help
 COMMANDS:
-  general, g, status  show overall NetworkManager status
-  device, dev, d      list network devices, or show one by interface name
-  wifi, w             list visible Wi-Fi access points (subcommand: connect)
-  connection, con, c  list active connections (subcommands: up, down, delete)
+  general, g, status  status + `permissions` subcommand
+  device, dev, d      list / show <iface> (subcommands: connect, disconnect)
+  wifi, w             list APs (subcommands: connect, rescan)
+  connection, con, c  active list (subcommands: profiles, show, add, modify, up, down, delete)
   networking          show or set global networking: networking [on|off]
   radio               show or set radios: radio [wifi|wwan] [on|off]
   monitor, mon        watch NetworkManager events until interrupted
 ```
 
-Read-only:
+Read-only (`-t`/`--terse` and `-j`/`--json` on `general`, `device`, `connection`):
 
 ```console
-$ ./nm-cli device                # device table
-$ ./nm-cli device wlan0          # detailed view of one interface
-$ ./nm-cli wifi                  # list access points (--ifname to pick a device)
-$ ./nm-cli connection            # active connections
+$ ./nm-cli general               # version/state/connectivity/metered/networking/wifi/wwan
+$ ./nm-cli general permissions   # PolicyKit permissions
+$ ./nm-cli device                # device table   (-t / -j)
+$ ./nm-cli device wlan0          # detail: addrs, routes, DNS, DHCP, caps, speed
+$ ./nm-cli wifi                  # access points (--ifname to pick a device)
+$ ./nm-cli connection            # active connections   (-t / -j)
+$ ./nm-cli connection profiles   # saved profiles       (-t / -j)
+$ ./nm-cli connection show <id>  # one saved profile
 ```
 
-Mutating / monitoring (these need root/PolicyKit):
+Mutating / monitoring (need root/PolicyKit):
 
 ```console
-$ sudo ./nm-cli networking on            # or: off
-$ sudo ./nm-cli radio wifi off           # radio wwan on, etc.
+$ sudo ./nm-cli networking on
+$ sudo ./nm-cli radio wifi off
+$ sudo ./nm-cli wifi rescan
 $ sudo ./nm-cli wifi connect MySSID --password hunter2
-$ sudo ./nm-cli connection up   <id|uuid>   # activate (waits until activated)
-$ sudo ./nm-cli connection down <id|uuid>   # deactivate
-$ sudo ./nm-cli connection delete <id|uuid> # delete a saved profile
-$ sudo ./nm-cli monitor                  # stream device/state/connectivity events
+$ sudo ./nm-cli wifi connect Corp --eap peap --identity alice --eap-password pw
+$ sudo ./nm-cli connection add --type dummy --con-name test --ifname dummy0 --method disabled
+$ sudo ./nm-cli connection add --type vlan --parent eth0 --vlan-id 42
+$ sudo ./nm-cli connection modify test connection.autoconnect no
+$ sudo ./nm-cli connection up|down|delete <id|uuid>
+$ sudo ./nm-cli monitor                  # timestamped device/state/connectivity events
 ```
+
+Shell completions are built in: `nm-cli --bash-completions` / `--zsh-completions`.
 
 Without building an executable you can also run it via
 `(asdf:load-system :nm/cli)` then `(nm.cli:main)`.
