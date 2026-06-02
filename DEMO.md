@@ -445,8 +445,11 @@ monitoring NetworkManager events (Ctrl-C to stop) ...
 
 - `-t`/`--terse` (colon-separated) and `-j`/`--json` on `general`, `device`,
   `connection`.
-- Shell completions are built in: `nm-cli --bash-completions` /
-  `nm-cli --zsh-completions`.
+- Shell completions ship in [`completions/`](completions): drop
+  `completions/nm-cli.bash` into `/etc/bash_completion.d/`, or put
+  `completions/_nm-cli` on your zsh `$fpath`. The bash script is a thin wrapper
+  around clingon's built-in `nm-cli … --bash-completions`, so it stays correct
+  as commands change.
 
 ---
 

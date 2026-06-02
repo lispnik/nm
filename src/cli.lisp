@@ -413,7 +413,7 @@ first Wi-Fi device found."
 
 (defcmd wifi-rescan
   :name "rescan"
-  :description "request a Wi-Fi scan (results appear in `wifi' shortly after)"
+  :description "request a Wi-Fi scan (results appear in 'wifi' shortly after)"
   :options (list (clingon:make-option
                   :string :description "Wi-Fi interface to scan"
                   :short-name #\i :long-name "ifname" :key :ifname))
