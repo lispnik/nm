@@ -1,9 +1,5 @@
 ;;; gvalue.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; Low-level GObject/CFFI helpers shared by the v2 layers: loading the
 ;;; foreign libraries, the lazy GLib namespace, and a GValue-based setter for
 ;;; boxed-typed GObject properties.
@@ -49,7 +45,6 @@ calls in the v2 layer can resolve their symbols.  Idempotent."
                    (cffi:use-foreign-library libnm)
                    t))))
 
-;;; ---------------------------------------------------------------------------
 ;;; GLib namespace (lazy, like the NM namespace)
 
 (defvar *glib* nil)
@@ -57,7 +52,6 @@ calls in the v2 layer can resolve their symbols.  Idempotent."
 (defun glib-namespace ()
   (or *glib* (setf *glib* (gir:require-namespace "GLib" "2.0"))))
 
-;;; ---------------------------------------------------------------------------
 ;;; GValue + boxed-property setting
 
 ;;; GType is gsize; the value union is two pointer-sized words.  24 bytes on
@@ -85,7 +79,6 @@ calls in the v2 layer can resolve their symbols.  Idempotent."
 
 (cffi:defcfun ("g_bytes_get_type" %g-bytes-get-type) :unsigned-long)
 
-;;; ---------------------------------------------------------------------------
 ;;; Reference ownership and cancellation
 
 (cffi:defcfun ("g_object_unref" %g-object-unref) :void
@@ -125,7 +118,6 @@ SSID (a GBytes).  GTYPE is typically obtained from a `..._get_type' call."
     (%g-object-set-property (gir::this-of object) name val)
     (%g-value-unset val)))
 
-;;; ---------------------------------------------------------------------------
 ;;; GHashTable<string,string> unpacking
 ;;;
 ;;; Like GPtrArray, GHashTable isn't marshaled by cl-gobject-introspection, so

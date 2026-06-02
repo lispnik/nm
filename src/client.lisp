@@ -1,9 +1,5 @@
 ;;; client.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; The NMClient: the entry point into NetworkManager.  All accessors here
 ;;; are read-only and synchronous, so no GMainLoop is required.
 
@@ -37,7 +33,6 @@ GMainContext."
   "Return CLIENT, defaulting to *CLIENT*, creating one on demand."
   (or client (make-client)))
 
-;;; ---------------------------------------------------------------------------
 ;;; Client-level queries
 
 (defun version (&optional (client *client*))
@@ -52,14 +47,6 @@ GMainContext."
 
 (defun wwan-enabled-p (&optional (client *client*))
   (gir:invoke ((client client) 'wwan-get-enabled)))
-
-;;; ---------------------------------------------------------------------------
-;;; Control toggles (v2 Phase 1)
-;;;
-;;; These are synchronous libnm calls -- no main loop required -- so they are
-;;; the simplest mutating operations.  Each returns the resulting state as
-;;; read back from the client (best effort: the cached property updates as
-;;; the daemon's change signal is processed).
 
 (defun set-networking-enabled (enabled &optional (client *client*))
   "Globally enable or disable all networking.  Returns the resulting state.
@@ -139,9 +126,6 @@ or NIL if there is none."
   (let ((ac (gir:invoke ((client client) 'get-primary-connection))))
     (unless (null-object-p ac) ac)))
 
-;;; ---------------------------------------------------------------------------
-;;; Saved connection profiles (NMRemoteConnection)
-;;;
 ;;; These are the stored profiles NetworkManager can activate, as opposed to
 ;;; the currently *active* connections above.  Read-only accessors only.
 

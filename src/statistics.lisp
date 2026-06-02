@@ -1,9 +1,5 @@
 ;;; statistics.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; Device traffic statistics.
 ;;;
 ;;; libnm's client API does NOT expose device statistics -- they live only on

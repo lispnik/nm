@@ -1,9 +1,5 @@
 ;;; test-unit.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; Pure unit tests for the binding's decoding and unpacking logic.  These do
 ;;; NOT touch NetworkManager (no client, no typelib calls), so they run on any
 ;;; platform -- useful for CI on non-Linux hosts.

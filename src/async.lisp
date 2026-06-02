@@ -1,11 +1,5 @@
 ;;; async.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
-;;; v2 Phase 0: the asynchronous core.
-;;;
+
 ;;; libnm's mutating operations are asynchronous: a `..._async' call that
 ;;; takes a GAsyncReadyCallback, paired with a `..._finish' that retrieves
 ;;; the result inside that callback.  Two facts about cl-gobject-introspection

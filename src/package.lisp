@@ -1,8 +1,4 @@
 ;;; package.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
 
 (defpackage #:nm
   (:use #:cl)
@@ -35,17 +31,17 @@ GObject Introspection.")
    #:metered
    #:permission
 
-   ;; control toggles (v2 phase 1)
+   ;; control toggles 
    #:set-networking-enabled
    #:set-wireless-enabled
    #:set-wwan-enabled
 
-   ;; activation (v2 phase 2)
+   ;; activation
    #:activate
    #:deactivate
    #:disconnect-device
 
-   ;; connection construction + management (v2 phase 3)
+   ;; connection construction + management
    #:make-connection
    #:make-setting
    #:setting-property
@@ -64,14 +60,14 @@ GObject Introspection.")
    #:update-connection
    #:delete-connection
 
-   ;; wi-fi connect (v2 phase 4)
+   ;; wi-fi connect
    #:set-boxed-property
    #:setting-set-ssid
    #:make-wifi-connection
    #:add-and-activate
    #:connect-wifi
 
-   ;; monitoring + event loop (v2 phase 5)
+   ;; monitoring + event loop
    #:start-event-loop
    #:stop-event-loop
    #:event-loop-running-p
@@ -185,5 +181,3 @@ GObject Introspection.")
    #:summary
    #:print-summary
    #:main))
-
-(in-package #:nm)

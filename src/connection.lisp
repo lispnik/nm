@@ -1,18 +1,7 @@
 ;;; connection.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
-;;; v2 Phase 3 (construction half): building NMConnection objects from
-;;; NMSetting objects.  This is deliberately object-based -- we set GObject
-;;; properties on typed setting instances and add them to the connection --
-;;; which keeps us off the GVariant a{sa{sv}} path entirely for scalar
-;;; properties (proven feasible against live NM).  Complex/boxed properties
-;;; (Wi-Fi SSID, address lists) are deferred to Phase 4.
-;;;
-;;; The add/update/delete operations that push these to the daemon are async
-;;; and live in async.lisp.
+
+;;; The add/update/delete operations that push these to the daemon are async and
+;;; live in async.lisp.
 
 (in-package #:nm)
 
@@ -117,9 +106,6 @@ ADDRESSES/GATEWAY/ROUTES/DNS/DNS-SEARCH are as for ADD-IP4-SETTING."
                (%populate-ip-setting (make-setting "SettingIP6Config")
                                      10 method addresses gateway routes dns dns-search)))
 
-;;; ---------------------------------------------------------------------------
-;;; Wi-Fi (v2 Phase 4)
-;;;
 ;;; The SSID is a GBytes property, which gir:property cannot set, so it goes
 ;;; through SET-BOXED-PROPERTY (see gvalue.lisp).
 
@@ -166,7 +152,6 @@ Pass the result to ADD-AND-ACTIVATE (or use CONNECT-WIFI)."
     (add-ip6-setting conn :method "auto")
     conn))
 
-;;; ---------------------------------------------------------------------------
 ;;; Other connection types: VLAN, bridge, bond, VPN
 
 (defun make-vlan-connection (parent vlan-id &key id (method "auto"))

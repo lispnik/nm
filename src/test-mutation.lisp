@@ -1,10 +1,6 @@
 ;;; test-mutation.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
-;;; Mutation test suite for the v2 management layer.  Unlike nm/test (which is
+
+;;; Mutation test suite for the management layer.  Unlike nm/test (which is
 ;;; read-only and safe), this CREATES, ACTIVATES, MODIFIES and DELETES a real
 ;;; connection profile, so it is gated behind the NM_TEST_MUTATE=1 environment
 ;;; variable and requires root/PolicyKit authorization.

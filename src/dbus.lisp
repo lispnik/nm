@@ -1,9 +1,5 @@
 ;;; dbus.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; A small GDBus utility for the handful of NetworkManager features that are
 ;;; exposed only on D-Bus and not through libnm's client API (e.g. device
 ;;; statistics).  It provides typed DBUS-GET-PROPERTY / DBUS-SET-PROPERTY over

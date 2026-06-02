@@ -1,9 +1,5 @@
 ;;; cli.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; A small nmcli-like command-line front end that exercises the nm
 ;;; binding, built with clingon.
 
@@ -13,7 +9,6 @@
 
 (in-package #:nm.cli)
 
-;;; ---------------------------------------------------------------------------
 ;;; Helpers
 
 (defun kw (value)
@@ -70,9 +65,8 @@ non-zero.  Used to wrap mutating operations."
              (or (string= name (nm:ac-id ac)) (string= name (nm:ac-uuid ac))))
            (nm:active-connections client)))
 
-;;; --- JSON output ----------------------------------------------------------
-;;; Objects are (cons :obj alist), arrays (cons :arr list); booleans use T and
-;;; :false to stay unambiguous against NIL (which prints as null).
+;;; JSON output Objects are (cons :obj alist), arrays (cons :arr list); booleans
+;;; use T and :false to stay unambiguous against NIL (which prints as null).
 
 (defun jobj (alist) (cons :obj alist))
 (defun jarr (list) (cons :arr list))
@@ -137,7 +131,6 @@ saved PROFILE, or NIL."
                  (t nil))))
     (unless (nm:null-object-p s) s)))
 
-;;; ---------------------------------------------------------------------------
 ;;; general
 
 (defparameter +permissions+
@@ -197,7 +190,6 @@ saved PROFILE, or NIL."
   :handler #'general/handler
   :sub-commands (list (general-permissions/command)))
 
-;;; ---------------------------------------------------------------------------
 ;;; device
 
 (defun device-connection-name (device)
@@ -329,7 +321,6 @@ saved PROFILE, or NIL."
   :handler #'device/handler
   :sub-commands (list (device-connect/command) (device-disconnect/command)))
 
-;;; ---------------------------------------------------------------------------
 ;;; wifi
 
 (defun wifi-device (client ifname)
@@ -432,7 +423,6 @@ first Wi-Fi device found."
   :handler #'wifi/handler
   :sub-commands (list (wifi-connect/command) (wifi-rescan/command)))
 
-;;; ---------------------------------------------------------------------------
 ;;; connection
 
 (defun connection/handler (cmd)
@@ -700,7 +690,6 @@ first Wi-Fi device found."
                       (con-add/command) (con-modify/command)
                       (con-up/command) (con-down/command) (con-delete/command)))
 
-;;; ---------------------------------------------------------------------------
 ;;; networking / radio toggles
 
 (defun show-toggle (label state)
@@ -748,7 +737,6 @@ first Wi-Fi device found."
   :usage "[wifi|wwan] [on|off]"
   :handler #'radio/handler)
 
-;;; ---------------------------------------------------------------------------
 ;;; monitor
 
 (defun stamp ()
@@ -795,7 +783,6 @@ first Wi-Fi device found."
   :aliases '("mon")
   :handler #'monitor/handler)
 
-;;; ---------------------------------------------------------------------------
 ;;; top level
 
 (defun toplevel/handler (cmd)

@@ -1,11 +1,7 @@
 ;;; library.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
-;;; Namespace acquisition and low-level GObject Introspection helpers
-;;; shared by the rest of the binding.
+
+;;; Namespace acquisition and low-level GObject Introspection helpers shared by
+;;; the rest of the binding.
 
 (in-package #:nm)
 
@@ -31,7 +27,6 @@ typelib is only touched once a caller actually reaches into the API."
 its introspection data is missing.  Returns the namespace object."
   (namespace))
 
-;;; ---------------------------------------------------------------------------
 ;;; Enum decoding
 ;;;
 ;;; cl-gobject-introspection marshals enum *return* values to raw integers
@@ -93,7 +88,6 @@ keywords, one per set single-bit flag.  Returns NIL for an empty bitfield,
 e.g. (:KEY-MGMT-PSK :PAIR-CCMP)."
   (decode-flags (enum-cache-alist (enum-table enum-name)) value))
 
-;;; ---------------------------------------------------------------------------
 ;;; Conditions
 
 (define-condition nm-error (error)
@@ -120,7 +114,6 @@ message rather than an opaque object."
      (nm-error (e) (error e))
      (error (e) (error 'nm-error :message ,message :cause (princ-to-string e)))))
 
-;;; ---------------------------------------------------------------------------
 ;;; Object helpers
 
 (defun null-object-p (object)
@@ -144,7 +137,6 @@ unmarshaled containers (GHashTable, GPtrArray) that gir hands back wrapped."
         ((cffi:pointerp x) x)
         (t (gir::this-of x))))
 
-;;; ---------------------------------------------------------------------------
 ;;; GPtrArray unpacking
 ;;;
 ;;; cl-gobject-introspection only marshals C arrays; a GPtrArray return type

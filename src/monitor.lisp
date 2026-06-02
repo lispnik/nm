@@ -1,20 +1,7 @@
 ;;; monitor.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
-;;; v2 Phase 5: event monitoring plus ACTIVATE-AND-WAIT (which blocks until an
-;;; activation settles by watching the active connection's state-changed
-;;; signal).  The shared event loop and the marshaling core live in loop.lisp.
-;;;
-;;; Signals work out of the box through gir:connect (verified in the original
-;;; feasibility spike); they are dispatched once the shared loop is running
-;;; (START-EVENT-LOOP).  Handlers run on the loop thread.
 
 (in-package #:nm)
 
-;;; ---------------------------------------------------------------------------
 ;;; Subscriptions
 ;;;
 ;;; Each returns the handler id from gir:connect, usable with DISCONNECT-HANDLER.
@@ -67,7 +54,6 @@ changes, via the GObject notify signal."
   "Remove a previously connected signal handler."
   (gir:disconnect object handler-id))
 
-;;; ---------------------------------------------------------------------------
 ;;; Activate and wait for the result to settle
 
 (defun await-active (ac timeout)

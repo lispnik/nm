@@ -25,7 +25,6 @@
   "Default seconds to wait for an async operation before cancelling it and
 signalling NM-ERROR.  NIL waits indefinitely.")
 
-;;; ---------------------------------------------------------------------------
 ;;; Continuation registry (shared by async-ready callbacks and loop thunks)
 
 (defvar *pending-callbacks* (make-hash-table)
@@ -44,7 +43,6 @@ signalling NM-ERROR.  NIL waits indefinitely.")
       (remhash addr *pending-callbacks*)
       (cffi:foreign-free token))))
 
-;;; ---------------------------------------------------------------------------
 ;;; C entry points
 
 (cffi:defcallback %async-ready :void
@@ -68,7 +66,6 @@ signalling NM-ERROR.  NIL waits indefinitely.")
         (error (e) (format *error-output* "~&nm: error in loop task: ~A~%" e)))))
   0)                                    ; G_SOURCE_REMOVE
 
-;;; ---------------------------------------------------------------------------
 ;;; The loop thread
 
 (defvar *event-loop* nil)
@@ -112,7 +109,6 @@ Idempotent; returns T."
         (ignore-errors (bt:join-thread thread)))))
   t)
 
-;;; ---------------------------------------------------------------------------
 ;;; Marshaling
 
 (defun run-on-loop (thunk)

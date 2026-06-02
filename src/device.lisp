@@ -1,15 +1,10 @@
 ;;; device.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; Accessors for NMDevice (and the NMDeviceWifi subclass), NMIPConfig,
 ;;; NMAccessPoint and NMActiveConnection.  All read-only.
 
 (in-package #:nm)
 
-;;; ---------------------------------------------------------------------------
 ;;; NMDevice
 
 (defun device-interface (device)
@@ -57,8 +52,6 @@ not-yet-instantiated virtual device."
   "The NMActiveConnection currently on DEVICE, or NIL."
   (let ((ac (gir:invoke (device 'get-active-connection))))
     (unless (null-object-p ac) ac)))
-
-;;; IPv4 configuration -------------------------------------------------------
 
 ;;; The IPv4 and IPv6 configs are both NMIPConfig instances, so a single
 ;;; set of unpackers serves both families.
@@ -165,7 +158,7 @@ empty for a plain device."
   (when (eq (device-type device) :vlan)
     (most-derived (gir:invoke (device 'get-parent)))))
 
-;;; DHCP configuration -------------------------------------------------------
+;;; DHCP
 
 (defun device-dhcp4-config (device)
   "The NMDhcpConfig for DEVICE's IPv4 lease, or NIL."
@@ -197,7 +190,6 @@ empty for a plain device."
   "DHCPv6 lease options for DEVICE as an alist of strings."
   (dhcp-options (device-dhcp6-config device)))
 
-;;; ---------------------------------------------------------------------------
 ;;; Wi-Fi: NMDeviceWifi / NMAccessPoint
 
 (defun wifi-device-p (device)
@@ -279,7 +271,6 @@ privacy bit together with its WPA and RSN flag sets."
         (push :owe result)))
     (nreverse result)))
 
-;;; ---------------------------------------------------------------------------
 ;;; NMActiveConnection
 
 (defun ac-id (ac)
