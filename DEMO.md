@@ -100,7 +100,7 @@ Access points, with decoded security:
 nm> (loop for ap in (access-points (find-device "wlan0"))
           collect (list (ap-ssid ap) (ap-strength ap) (ap-frequency ap)
                         (ap-security ap)))
-(("SwiftSensors_5GHz" 57 5500 (:wpa2)))
+(("Example_5GHz" 57 5500 (:wpa2)))
 ```
 
 ### Active connections
@@ -111,7 +111,7 @@ nm> (loop for ac in (active-connections)
                         (mapcar #'device-interface (ac-devices ac))))
 (("lo" "loopback" :activated nil ("lo"))
  ("tailscale0" "tun" :activated nil ("tailscale0"))
- ("netplan-wlan0-SwiftSensors_5GHz" "802-11-wireless" :activated t ("wlan0")))
+ ("netplan-wlan0-Example_5GHz" "802-11-wireless" :activated t ("wlan0")))
 ```
 
 ### Saved profiles
@@ -121,7 +121,7 @@ nm> (loop for p in (connections)
           collect (list (connection-id p) (connection-type p)
                         (connection-autoconnect-p p)))
 (("netplan-eth0" "802-3-ethernet" t)
- ("netplan-wlan0-SwiftSensors_5GHz" "802-11-wireless" t) ("lo" "loopback" nil)
+ ("netplan-wlan0-Example_5GHz" "802-11-wireless" t) ("lo" "loopback" nil)
  ("tailscale0" "tun" nil))
 ```
 
@@ -307,12 +307,12 @@ $ nm-cli device
 DEVICE           TYPE       STATE          CONNECTION
 lo               loopback   activated      lo
 eth0             ethernet   unavailable    --
-wlan0            wifi       activated      netplan-wlan0-SwiftSensors_5GHz
+wlan0            wifi       activated      netplan-wlan0-Example_5GHz
 p2p-dev-wlan0    wifi-p2p   disconnected   --
 tailscale0       tun        activated      tailscale0
 
 $ nm-cli device --json
-[{"device":"lo","type":"loopback","state":"activated","connection":"lo"},{"device":"eth0",...},{"device":"wlan0","type":"wifi","state":"activated","connection":"netplan-wlan0-SwiftSensors_5GHz"},...]
+[{"device":"lo","type":"loopback","state":"activated","connection":"lo"},{"device":"eth0",...},{"device":"wlan0","type":"wifi","state":"activated","connection":"netplan-wlan0-Example_5GHz"},...]
 ```
 
 Detail for one interface — addresses, routes, DNS, capabilities, speed, and
@@ -326,7 +326,7 @@ GENERAL.HWADDR:        DC:A6:32:D4:F4:69
 GENERAL.STATE:         activated
 GENERAL.DRIVER:        brcmfmac
 GENERAL.MTU:           1500
-GENERAL.CONNECTION:    netplan-wlan0-SwiftSensors_5GHz
+GENERAL.CONNECTION:    netplan-wlan0-Example_5GHz
 IP4.ADDRESS[1]:        192.168.50.151/24
 IP4.GATEWAY:           192.168.50.1
 IP4.DNS[1]:            192.168.50.1
@@ -348,7 +348,7 @@ DHCP4.OPTION[25]:      subnet_mask = 255.255.255.0
 ```console
 $ nm-cli wifi
    SSID                             MODE     SECURITY       SIGNAL FREQ
-*  SwiftSensors_5GHz                infra    wpa2             59%   5500 MHz
+*  Example_5GHz                     infra    wpa2             59%   5500 MHz
 
 $ sudo nm-cli wifi rescan
 scan requested on wlan0
@@ -368,12 +368,12 @@ $ nm-cli connection
 NAME                               TYPE             STATE      DEFAULT
 lo                                 loopback         activated  no
 tailscale0                         tun              activated  no
-netplan-wlan0-SwiftSensors_5GHz    802-11-wireless  activated  yes
+netplan-wlan0-Example_5GHz         802-11-wireless  activated  yes
 
 $ nm-cli connection profiles
 NAME                               UUID                                   TYPE             AUTOCONNECT
 netplan-eth0                       75a1216a-9d1a-30cd-8aca-ace5526ec021   802-3-ethernet   yes
-netplan-wlan0-SwiftSensors_5GHz    26804860-5331-32d2-b600-b82e1b07ec55   802-11-wireless  yes
+netplan-wlan0-Example_5GHz         26804860-5331-32d2-b600-b82e1b07ec55   802-11-wireless  yes
 lo                                 8c0e7442-5c59-4b44-89ea-d430906bb0f4   loopback         no
 tailscale0                         8b5864ae-4c7c-448a-a206-976bbfd57210   tun              no
 ```
