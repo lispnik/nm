@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Unit tests (SBCL / Linux)
+    runs-on: ubuntu-latest
+    env:
+      OCICL_VERSION: "2.16.13"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SBCL and GObject Introspection
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sbcl \
+            gobject-introspection \
+            libgirepository1.0-dev \
+            libglib2.0-dev
+
+      - name: Install ocicl
+        run: |
+          curl -sSL -o /tmp/ocicl.tar.gz \
+            "https://github.com/ocicl/ocicl/releases/download/v${OCICL_VERSION}/ocicl-${OCICL_VERSION}-linux-amd64.tar.gz"
+          tar -xzf /tmp/ocicl.tar.gz -C /tmp
+          sudo install -m 0755 /tmp/ocicl /usr/local/bin/ocicl
+          ocicl setup
+
+      - name: Configure SBCL to use ocicl and the project source registry
+        run: |
+          cat > "$HOME/.sbclrc" <<'EOF'
+          #-ocicl
+          (when (probe-file #P"~/.local/share/ocicl/ocicl-runtime.lisp")
+            (load #P"~/.local/share/ocicl/ocicl-runtime.lisp"))
+          (asdf:initialize-source-registry
+            (list :source-registry (list :directory (uiop:getcwd)) :inherit-configuration))
+          EOF
+
+      - name: Install Lisp dependencies
+        run: ocicl install
+
+      - name: Run unit tests
+        run: |
+          sbcl --non-interactive \
+               --eval '(asdf:load-system :nm/test/unit)' \
+               --eval '(uiop:quit (nm.test.unit:run-tests))'

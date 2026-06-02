@@ -1,5 +1,7 @@
 # nm
 
+[![CI](https://github.com/lispnik/nm/actions/workflows/ci.yml/badge.svg)](https://github.com/lispnik/nm/actions/workflows/ci.yml)
+
 Common Lisp bindings to **libnm** (NetworkManager) for Linux, built on
 [GObject Introspection](https://gitlab.gnome.org/GNOME/gobject-introspection)
 via [`cl-gobject-introspection`](https://github.com/andy128k/cl-gobject-introspection).
