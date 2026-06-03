@@ -1,9 +1,5 @@
 ;;; loop.lisp
-;;;
-;;; SPDX-License-Identifier: MIT
-;;;
-;;; Copyright (C) 2026 Matthew Kennedy
-;;;
+
 ;;; The shared event loop and async marshaling core (v2 improvement #4).
 ;;;
 ;;; There is exactly ONE GLib main loop, running on a dedicated thread.  All
